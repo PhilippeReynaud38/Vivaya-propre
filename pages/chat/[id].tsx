@@ -1,79 +1,109 @@
-// pages/chat/[id].tsx – header compact, icône MENU, alias @/lib
+// pages/chat/[id].tsx
+// -----------------------------------------------------------------------------
+// Page conversation 1-to-1
+//  • wrapper flex-col h-full pour bloquer le scroll du <body>
+//  • header (avatar + statut) + MessagesChat
+// -----------------------------------------------------------------------------
 
-import { useRouter } from 'next/router';
-import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabaseClient';      // ✅ alias @/
-import MessagesChat from '@/components/MessagesChat'; // ✅ alias @/
-
-interface PeerProfile {
-  username: string;
-  avatar_url: string | null;
-}
+import { useRouter }   from 'next/router'
+import { useEffect, useState } from 'react'
+import Image           from 'next/image'
+import ChatLayout      from '../../components/ChatLayout'
+import MessagesChat    from '../../components/MessagesChat'
+import { supabase }    from '../../lib/supabaseClient'
 
 export default function ChatPage() {
-  const router   = useRouter();
-  const rawId    = Array.isArray(router.query.id)
-    ? router.query.id[0]
-    : (router.query.id as string) || '';
-  const peerId   = rawId.replace(/^['"<]+|['">]+$/g, '');
+  const router = useRouter()
 
-  const [userId,   setUserId]   = useState<string | null>(null);
-  const [peerData, setPeerData] = useState<PeerProfile | null>(null);
+  /* ---------- peerId depuis l’URL ---------- */
+  const rawId  = Array.isArray(router.query.id) ? router.query.id[0] : (router.query.id as string) || ''
+  const peerId = rawId.replace(/^['"<]+|['">]+$/g, '')
 
-  /* -------- récupérer l’utilisateur courant -------- */
+  /* ---------- state courant / peer ---------- */
+  const [userId,   setUserId]   = useState<string|null>(null)
+  const [peerData, setPeerData] = useState<{ username:string; avatar_url:string|null }|null>(null)
+  const [peerStatus, setPeerStatus] = useState<'online'|'recent'|'offline'|'unknown'>('unknown')
+
+  /* ---------- utilisateur courant ---------- */
   useEffect(() => {
     (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) router.replace('/login');
-      else       setUserId(user.id);
-    })();
-  }, [router]);
+      const { data:{ user } } = await supabase.auth.getUser()
+      if (!user) router.replace('/login')
+      else       setUserId(user.id)
+    })()
+  }, [router])
 
-  /* -------- récupérer le profil du destinataire -------- */
+  /* ---------- peer (profil + statut) ---------- */
   useEffect(() => {
-    if (!peerId) return;
-    (async () => {
+    const fetchPeer = async () => {
+      if (!peerId) return
       const { data, error } = await supabase
         .from('profiles')
-        .select('username, avatar_url')
+        .select('username, avatar_url, last_seen')
         .eq('id', peerId)
-        .single();
-      if (!error && data) {
-        setPeerData({ username: data.username, avatar_url: data.avatar_url });
+        .single()
+
+      if (error) { console.error('[peer]', error.message); return }
+
+      if (data) {
+        setPeerData({ username: data.username, avatar_url: data.avatar_url })
+
+        const diff = Date.now() - new Date(data.last_seen).getTime()
+        const st   = diff < 60_000   ? 'online'
+                   : diff < 600_000  ? 'recent'
+                   : 'offline'
+        setPeerStatus(st)
       }
-    })();
-  }, [peerId]);
+    }
 
-  if (!userId || !peerData) {
-    return (
-      <div className="flex h-screen items-center justify-center text-neutral-500">
-        Chargement…
-      </div>
-    );
-  }
+    fetchPeer()
+    const id = setInterval(fetchPeer, 15_000)   // refresh toutes les 15 s
+    return () => clearInterval(id)
+  }, [peerId])
 
+  /* ---------- loading ---------- */
+  if (!userId || !peerData)
+    return <div className="flex items-center justify-center h-screen text-gray-500">Chargement…</div>
+
+  /* ---------- render ---------- */
   return (
-    <div className="flex h-screen w-screen flex-col bg-gradient-to-b from-[#d9f5e5] to-white">
-      {/* --- Header (avatar + nom + menu) --- */}
-      <header className="z-10 flex items-center justify-between bg-white px-4 py-2 shadow-sm">
-        <div className="flex items-center gap-3">
-          <img
-            src={peerData.avatar_url ?? '/default-avatar.png'}
-            alt="Profil"
-            className="h-9 w-9 rounded-full object-cover ring-2 ring-chat-accent"
-          />
-          <span className="text-sm font-semibold">{peerData.username}</span>
+    <ChatLayout>
+      {/* *** Wrapper hauteur complète *** */}
+      <div className="flex flex-col h-full">
+
+        {/* -------- Header -------- */}
+        <header className="flex justify-between items-center px-4 py-2 bg-white shadow z-10">
+          <div className="flex items-center space-x-3">
+            <div className="relative">
+              <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-pink-300">
+                <Image
+                  src={peerData.avatar_url || '/default-avatar.png'}
+                  alt="Profil"
+                  width={56}
+                  height={56}
+                  className="object-cover w-full h-full"
+                />
+              </div>
+              {peerStatus === 'online' && (
+                <span className="absolute -top-2 -left-2 w-3.5 h-3.5 bg-blue-500 border-2 border-white rounded-full" />
+              )}
+            </div>
+            <span className="text-sm font-semibold">{peerData.username}</span>
+          </div>
+
+          <button
+            onClick={() => alert('Menu (placeholder)')}
+            className="bg-lime-400 text-black font-bold px-3 py-1 rounded text-sm"
+          >
+            MENU
+          </button>
+        </header>
+
+        {/* -------- Zone messages -------- */}
+        <div className="flex-1 h-full overflow-hidden">
+          <MessagesChat userId={userId} peerId={peerId} />
         </div>
-
-        <button className="rounded-full bg-chat-accent px-3 py-1 text-sm text-white">
-          MENU
-        </button>
-      </header>
-
-      {/* --- Zone messages --- */}
-      <div className="flex-1 overflow-hidden">
-        <MessagesChat userId={userId} peerId={peerId} />
       </div>
-    </div>
-  );
+    </ChatLayout>
+  )
 }

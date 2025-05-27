@@ -3,11 +3,50 @@
 @tailwind components;
 @tailwind utilities;
 
+html, body, #__next { height: 100%; }   /* <- fondations */
+
+/* ---------- Thème clair par défaut ---------- */
+:root {
+  --c-primary        : #f55057;      /* rose vif Vivaya          */
+  --c-primary-soft   : #fff1f2;      /* rose très pâle           */
+  --c-card           : #4f46e5;      /* carte / bulles externes  */
+  --bg-start         : #ebfdf5;      /* dégradé global           */
+  --bg-end           : #e7f8ff;
+}
+
+/* ---------------------- bulles dédiées au thème FUN ---------------------- */
+
+@layer utilities { 
+[data-theme='fun']{ --brand-txt:40 40 40; }
+      .bubble-sent-fun   { @apply bg-amber-300/90 text-[rgb(var(--brand-txt))]; }
+      .bubble-recv-fun   { @apply bg-lime-200/90   text-[rgb(var(--brand-txt))]; }
+}
+
+
+/* ---------- Thème pastel « fun » ---------- */
+html[data-theme='fun'] {
+  --brand-txt:  40 40 80;     
+  --c-primary        : #ff9b00;      /* orange doux              */
+  --c-primary-soft   : #efe4ff;
+  --c-card           : #fffbe8;
+  --bg-start         : #fffbe8;
+  --bg-end           : #ffe7f1;
+}
+/* bulle spécifique au thème fun : même classes qu’avant + couleur txt */
+.bubble-fun{ @apply text-[rgb(var(--brand-txt))] }
+
+/* ---------- Mode sombre ---------- */
+.dark {
+  --c-primary        : #a855f7;
+  --c-primary-soft   : #3b3664;
+  --c-card           : #efe4ff;
+  --bg-start         : #0f172a;
+  --bg-end           : #1e293b;
+}
+
+
 html,
 body {
-
- background: radial-gradient(circle at 20% 20%, #f5fff9 0%, #d3f6e7 100%);
-
   height: 100%;
   margin: 0;
   padding: 0;
@@ -50,6 +89,19 @@ img {
   body {
     @apply text-neutral font-sans;
   }
+
+  /* -------- Thème pastel « fun » (activé via <html data-theme="fun">) ------- */
+  html[data-theme="fun"] body {
+    background-image:
+      linear-gradient(180deg,
+        #fff6e3 0%,
+        #ffe7f1 25%,
+        #e8f7ff 50%,
+        #e2ffec 75%,
+        #fffde8 100%
+      ),
+      url(/noise.svg);
+  }
 }
 
 /* -------- composants réutilisables -------- */
@@ -63,14 +115,37 @@ img {
   .input {
     @apply w-full rounded border-gray-300 focus:ring-pink-500 focus:border-pink-500 px-4 py-2;
   }
+
+  /* Helpers icônes action : cloche, corbeille, etc. */
+  .icon-action {
+    @apply fill-current text-orange-400 hover:text-orange-500 transition;
+  }
 }
 
-/* -------- arrière‑plan personnalisé -------- */
+/* -------- arrière-plan personnalisé -------- */
 @layer utilities {
   .bg-flow {
     background-image:
-      linear-gradient(180deg, rgba(209,255,240,0.0) 0%, rgba(169,240,228,0.5) 50%, #a3e2de 100%),
+      linear-gradient(180deg,
+        rgba(209,255,240,0.0) 0%,
+        rgba(169,240,228,0.5) 50%,
+        #a3e2de 100%
+      ),
       url(/noise.svg);
     background-blend-mode: overlay;
   }
+
+  /* Scrollbar fine (desktop) */
+  .thin-scrollbar::-webkit-scrollbar        { width: 6px; height: 6px; }
+  .thin-scrollbar::-webkit-scrollbar-track  { background: transparent; }
+  .thin-scrollbar::-webkit-scrollbar-thumb  { background: rgba(0,0,0,.25); border-radius: 3px; }
+  .thin-scrollbar                          { scrollbar-width: thin; scrollbar-color: rgba(0,0,0,.25) transparent; }
+
+  /* Petite animation “wizz” pour attirer l’attention */
+  @keyframes wizz {
+    0%,100% { transform: rotate(0deg);   }
+    25%     { transform: rotate(3deg);   }
+    75%     { transform: rotate(-3deg);  }
+  }
+  .animate-wizz { animation: wizz 0.3s ease-in-out 1; }
 }
