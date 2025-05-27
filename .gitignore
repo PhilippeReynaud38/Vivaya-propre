@@ -1,0 +1,8 @@
+node_modules/
+.next/
+.next/
+
+# artefacts de build
+.next/
+node_modules/
+
