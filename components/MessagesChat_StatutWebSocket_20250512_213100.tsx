@@ -45,6 +45,9 @@ export default function MessagesChat({ userId, peerId }: { userId: string; peerI
     }
   };
 
+
+
+
   useEffect(() => {
     fetchMessages();
     fetchStatuses();
@@ -74,6 +77,7 @@ export default function MessagesChat({ userId, peerId }: { userId: string; peerI
       supabase.removeChannel(msgChannel);
       supabase.removeChannel(statusChannel);
     };
+      // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, peerId]);
 
   const sendMessage = async () => {

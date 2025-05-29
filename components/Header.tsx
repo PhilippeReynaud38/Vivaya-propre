@@ -38,6 +38,8 @@ export default function MessagesChat({
     }
   }
 
+
+
   useEffect(() => {
     fetchMessages()
 
@@ -62,6 +64,7 @@ export default function MessagesChat({
     return () => {
       supabase.removeChannel(channel)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, peerId])
 
   const sendMessage = async () => {

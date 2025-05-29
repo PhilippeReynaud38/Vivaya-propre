@@ -1,0 +1,143 @@
+// components/MessagesChat.tsx
+import { useEffect, useRef, useState } from 'react';
+import { supabase } from '../lib/supabaseClient';
+
+type Message  = { id:number; sender:string; receiver:string; content:string; created_at:string };
+type Reaction = { id:string; message_id:number; user_id:string; emoji:string };
+interface Props { userId:string; peerId:string }
+
+/* Émojis par catégorie ------------------------------------------------------*/
+const CATS = {
+  faces   : ['😀','😁','😂','🤣','😅','😊','😎','😍','😘','😜','🤔','😢','😭','😡','🥳'],
+  gestures: ['👍','👎','👌','👏','🙌','🙏','💪','🤘','✌️','👋'],
+  love    : ['❤️','🧡','💛','💚','💙','💜','💖','💕','💔'],
+  fun     : ['🎉','🔥','✨','⚡','💯','🍕','🍺','🤖','💀','👻','🎸','🎮','🚀','🛸','🎧'],
+  misc    : ['⭐','🏆','⚽','🎲','🎵','📚','🗺️','🏖️','🌈','🍀'],
+} as const;
+type CatKey = keyof typeof CATS;
+const CAT_ICON: Record<CatKey,string> = {
+  faces:'😊', gestures:'👍', love:'❤️', fun:'🎉', misc:'✨',
+};
+
+export default function MessagesChat({ userId, peerId }: Props) {
+  const [messages,setMessages]   = useState<Message[]>([]);
+  const [reactions,setReactions] = useState<Reaction[]>([]);
+  const [newMsg,setNewMsg]       = useState('');
+  const [pickerOpen,setPickerOpen] = useState(false);
+  const [cat,setCat]             = useState<CatKey>('faces');
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  /* fetch + realtime messages (identique à ton implémentation) --------*/
+  useEffect(()=>{
+    (async()=>{
+      const {data,error}=await supabase
+        .from('messages')
+        .select('*')
+        .or(`and(sender.eq.${userId},receiver.eq.${peerId}),and(sender.eq.${peerId},receiver.eq.${userId})`)
+        .order('created_at');
+      if(!error) setMessages(data as Message[]);
+    })();
+
+    const sub = supabase.channel('msg').on(
+      'postgres_changes',
+      { event:'INSERT', schema:'public', table:'messages' },
+      payload=>{
+        const m = payload.new as Message;
+        if(
+          (m.sender===userId && m.receiver===peerId) ||
+          (m.sender===peerId && m.receiver===userId)
+        ) setMessages(prev=>[...prev,m]);
+      }
+    ).subscribe();
+
+    return ()=>{ supabase.removeChannel(sub); };
+  },[userId,peerId]);
+
+  /* envoi --------------------------------------------------------------*/
+  const sendMessage = async () => {
+    const content = newMsg.trim();
+    if(!content) return;
+    setNewMsg('');
+    await supabase.from('messages')
+      .insert({ sender:userId, receiver:peerId, content })
+      .throwOnError();
+    setPickerOpen(false);
+    // scroll bas léger délai pour que le message arrive
+    setTimeout(()=>bottomRef.current?.scrollIntoView({behavior:'smooth'}),100);
+  };
+
+  /* toggle réaction (inchangé) ----------------------------------------*/
+  const toggleReaction = async (id:number, emoji:string)=>{
+    const existing = reactions.find(r=>r.message_id===id && r.user_id===userId && r.emoji===emoji);
+    if(existing){
+      await supabase.from('message_reactions')
+        .delete().eq('id',existing.id).throwOnError();
+      setReactions(r=>r.filter(x=>x.id!==existing.id));
+    }else{
+      const {data} = await supabase.from('message_reactions')
+        .insert({ message_id:id, user_id:userId, emoji })
+        .select().single().throwOnError();
+      setReactions(r=>[...r,data as Reaction]);
+    }
+  };
+
+  /* UI -----------------------------------------------------------------*/
+  return(
+    <div className="flex flex-col h-full relative">
+      {/* zone scroll */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 pt-2 pb-28 space-y-4 thin-scrollbar">
+        {messages.map(m=>{
+          const mine = m.sender===userId;
+          const reacts = reactions.filter(r=>r.message_id===m.id);
+          return(
+            <div key={m.id} className={`flex ${mine?'justify-end':'justify-start'}`}>
+              <div className={clsx(
+                      'relative px-4 py-2 rounded-xl max-w-[80%] text-sm shadow',
+                      mine?'bg-pink-100':'bg-white'
+                   )}
+                   onContextMenu={e=>{e.preventDefault();toggleReaction(m.id,'❤️');}}>
+                {m.content}
+                {reacts.length>0 && <div className="mt-1 flex gap-1 text-sm">{reacts.map(r=><span key={r.id}>{r.emoji}</span>)}</div>}
+              </div>
+            </div>
+          );
+        })}
+        <div ref={bottomRef}/>
+      </div>
+
+      {/* picker */}
+      {pickerOpen &&
+        <div className="absolute bottom-20 left-1/2 -translate-x-1/2 w-[95%] max-w-sm
+                        bg-white border rounded shadow-lg p-3 z-50">
+          <div className="flex justify-center gap-2 mb-2">
+            {(Object.keys(CATS) as CatKey[]).map(k=>(
+              <button key={k} aria-label={k}
+                      className={clsx('px-2 py-1 rounded text-lg',
+                      cat===k?'bg-primary/20':'hover:bg-neutral-100')}
+                      onClick={()=>setCat(k)}>{CAT_ICON[k]}</button>
+            ))}
+          </div>
+          <div className="grid grid-cols-8 gap-1 text-xl">
+            {CATS[cat].map(e=><button key={e} onClick={()=>{setNewMsg(t=>t+e);setPickerOpen(false);}}>{e}</button>)}
+          </div>
+        </div>}
+
+      {/* barre saisie */}
+      <div className="fixed bottom-0 inset-x-0 bg-white border-t p-3 flex items-center gap-2 z-50">
+        <button aria-label="Ouvrir le sélecteur d’émojis"
+                className="text-xl" onClick={()=>setPickerOpen(o=>!o)}>😊</button>
+
+        <input value={newMsg} onChange={e=>setNewMsg(e.target.value)}
+               onKeyDown={e=>{if(e.key==='Enter') sendMessage();}}
+               placeholder="Écris un message…" className="flex-1 border rounded px-3 py-2 text-sm"/>
+        <button onClick={sendMessage}
+                className="hidden sm:inline-flex bg-primary text-white px-4 py-2 rounded text-sm">Envoyer</button>
+      </div>
+    </div>
+  );
+}
+
+/* util */
+function clsx(...c:(string|false|undefined)[]){return c.filter(Boolean).join(' ');}

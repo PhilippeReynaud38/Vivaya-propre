@@ -1,88 +1,72 @@
 // components/ChatLayout.tsx
-// -----------------------------------------------------------------------------
-// Centre la page « chat », gère le fond + le mini-switch thème ☀️/🌙/🎉
-// (ajout : <main className="relative ..."> pour que le footer sticky
-//          de MessagesChat reste bien à l’intérieur sur mobile)
-// -----------------------------------------------------------------------------
+import { ReactNode } from "react";
+import Image from "next/image";
 
-import { ReactNode, useEffect, useState } from 'react';
-import clsx from 'clsx';
-
-interface Props { children: ReactNode }
-
-/* --------------------------------------------------------------------------- */
-/* 🔘  mini-switch thème                                                       */
-/* --------------------------------------------------------------------------- */
-const ThemeSwitch = () => {
-  type Theme = 'light' | 'dark' | 'fun';
-  const [theme, setTheme] = useState<Theme>(() => {
-    if (typeof window === 'undefined') return 'light';
-    return (localStorage.getItem('vivaya_theme') as Theme) || 'light';
-  });
-
-  const apply = (t: Theme) => {
-    const html = document.documentElement;
-    html.classList.remove('dark');
-    html.removeAttribute('data-theme');
-    if (t === 'dark') html.classList.add('dark');
-    if (t === 'fun')  html.setAttribute('data-theme', 'fun');
-  };
-
-  useEffect(() => { apply(theme); }, [theme]);
-
-  const next  = theme === 'light' ? 'dark' : theme === 'dark' ? 'fun' : 'light';
-  const icon  = theme === 'light' ? '🌙'   : theme === 'dark' ? '🎉' : '☀️';
-  const label = `Passer en ${next === 'light' ? 'clair' : next}`;
-
-  return (
-    <button
-      title={label}
-      onClick={() => { setTheme(next); localStorage.setItem('vivaya_theme', next); }}
-      className="text-2xl select-none transition-transform hover:rotate-12 active:scale-90"
-    >
-      {icon}
-    </button>
-  );
+type Props = {
+  avatarUrl: string;
+  username: string;
+  children: ReactNode;
+  maxWidth?: number;      // largeur max en px (desktop) – défaut 820
+  hideHeader?: boolean;   // masque le header si besoin
 };
 
-/* --------------------------------------------------------------------------- */
-/* 📐  layout                                                                  */
-/* --------------------------------------------------------------------------- */
-export default function ChatLayout({ children }: Props) {
+export default function ChatLayout({
+  avatarUrl,
+  username,
+  children,
+  maxWidth = 820,
+  hideHeader = false,
+}: Props) {
+  /* ───────── HEADER ───────── */
+  const Header = (
+    <header
+      className="fixed inset-x-0 top-0 z-20 flex items-center justify-between
+                 px-4 py-2 border-b shadow-sm bg-white/80 backdrop-blur
+                 md:static md:bg-transparent md:shadow-none md:border-none"
+    >
+      <div className="flex items-center gap-2">
+        <Image
+          src={avatarUrl}
+          alt="avatar"
+          width={32}
+          height={32}
+          className="rounded-full"
+        />
+        <span className="font-medium">{username}</span>
+      </div>
+
+      <button
+        aria-label="Ouvrir le menu"
+        className="px-3 py-1 rounded bg-lime-500 text-white font-semibold"
+        onClick={() => console.log("ouvrir sidebar/menu")}
+      >
+        MENU
+      </button>
+    </header>
+  );
+
+  /* ───────── LAYOUT ───────── */
   return (
     <div
-      className={clsx(
-        'flex min-h-screen justify-center',
-        'lg:gap-4',            // place pour la sidebar ≥ lg
-        'px-2 lg:px-6',
-        'bg-flow'              // dégradé pastel (déclaré dans globals.css)
-      )}
+      className="flex flex-col h-screen
+                 sm:justify-center sm:items-center
+                 sm:bg-gradient-to-r sm:from-[#8ee5e0] sm:via-[#adf0ee] sm:to-white"
     >
-      {/* -------- sidebar “conversations” (placeholder) -------- */}
-      <aside className="hidden lg:block w-64 shrink-0">
-        <div className="sticky top-0 h-full rounded-lg bg-white/70 backdrop-blur shadow p-4">
-          <p className="text-sm font-semibold text-brand-700 mb-2">Conversations</p>
-          <p className="text-xs text-neutral-500">— en chantier —</p>
-        </div>
-      </aside>
+      {!hideHeader && Header}
 
-      {/* -------- conteneur principal -------- */}
-      +      <div className="flex flex-col h-full w-full max-w-[768px] rounded-lg
-+                      shadow-lg bg-white/70 backdrop-blur">
-
-+      {/* -------- barre supérieure -------- */}
-+      <header className="sticky top-0 z-30
-+                         flex items-center justify-between px-4 py-2
-+                         bg-[var(--c-card,#ffffff)] shadow-sm">
-          <span className="font-bold text-primary">Vivaya</span>
-          <ThemeSwitch />
-        </header>
-
-        {/* zone children – relative ➜ footer sticky (mobile) fonctionne */}
-        <main className="relative flex-1 overflow-hidden">
+      <main
+        className="flex-1 overflow-y-auto md:flex md:justify-center sm:h-[90vh]"
+        style={{ paddingTop: hideHeader ? 0 : 56 }}
+      >
+        <div
+className="w-full h-full px-2 sm:px-4 md:px-0
+                     sm:max-w-xl sm:rounded-xl sm:shadow-lg sm:ring-1 sm:ring-black/10
+                     sm:bg-white sm:overflow-hidden"
+          style={{ maxWidth }}
+        >
           {children}
-        </main>
-      </div>
+        </div>
+      </main>
     </div>
   );
 }

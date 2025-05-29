@@ -15,6 +15,7 @@ interface ChatBoxProps {
   otherUserId: string;
 }
 
+
 const ChatBox: React.FC<ChatBoxProps> = ({ otherUserId }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
@@ -47,8 +48,11 @@ const ChatBox: React.FC<ChatBoxProps> = ({ otherUserId }) => {
     }
   };
 
+
+
   useEffect(() => {
     fetchMessages();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   return (

@@ -1,43 +1,38 @@
 // pages/signup.tsx
-import { useState, FormEvent } from 'react'
-import { useRouter } from 'next/router'
-import Layout from '../components/Layout'
-import { supabase } from '../lib/supabaseClient'
+import { useState, FormEvent } from "react";
+import { useRouter } from "next/router";
+import Link from "next/link";
+import Layout from "../components/Layout";
+import { supabase } from "../lib/supabaseClient";
 
 export default function Signup() {
-  const router = useRouter()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [confirm, setConfirm] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const router = useRouter();
+  const [email, setEmail]      = useState("");
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm]   = useState("");
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState<string | null>(null);
 
   async function handleSubmit(e: FormEvent) {
-    e.preventDefault()
-    setError(null)
+    e.preventDefault();
+    setError(null);
 
     if (password !== confirm) {
-      setError('Les deux mots de passe sont différents.')
-      return
+      setError("Les deux mots de passe sont différents.");
+      return;
     }
 
-    setLoading(true)
-    const { error } = await supabase.auth.signUp({ email, password })
-    /* ————————————————————————————————
-       1️⃣  on déconnecte la session créée
-    ———————————————————————————————— */
-    await supabase.auth.signOut()
-    setLoading(false)
+    setLoading(true);
+    const { error } = await supabase.auth.signUp({ email, password });
+    await supabase.auth.signOut();          // on force la déconnexion créée
+    setLoading(false);
 
     if (error) {
-      setError(error.message)
+      setError(error.message);
     } else {
-      /* ————————————————————————————————
-         2️⃣  on transmet l’e‑mail à /login
-      ———————————————————————————————— */
       router.replace(
-        '/login?checkMail=1&email=' + encodeURIComponent(email)
-      )
+        "/login?checkMail=1&email=" + encodeURIComponent(email)
+      );
     }
   }
 
@@ -59,24 +54,24 @@ export default function Signup() {
           )}
 
           <label className="block">
-            <span className="text-gray-700">Adresse e‑mail</span>
+            <span className="text-gray-700">Adresse e-mail</span>
             <input
               type="email"
               required
               value={email}
-              onChange={e => setEmail(e.target.value)}
+              onChange={(e) => setEmail(e.target.value)}
               className="mt-1 input-field"
             />
           </label>
 
           <label className="block">
-            <span className="text-gray-700">Mot de passe (≥ 6 car.)</span>
+            <span className="text-gray-700">Mot de passe (≥ 6 car.)</span>
             <input
               type="password"
               required
               minLength={6}
               value={password}
-              onChange={e => setPassword(e.target.value)}
+              onChange={(e) => setPassword(e.target.value)}
               className="mt-1 input-field"
             />
           </label>
@@ -88,7 +83,7 @@ export default function Signup() {
               required
               minLength={6}
               value={confirm}
-              onChange={e => setConfirm(e.target.value)}
+              onChange={(e) => setConfirm(e.target.value)}
               className="mt-1 input-field"
             />
           </label>
@@ -98,17 +93,18 @@ export default function Signup() {
             disabled={loading}
             className="btn-pink w-full disabled:opacity-50"
           >
-            {loading ? 'Inscription…' : 'S’inscrire'}
+            {loading ? "Inscription…" : "S’inscrire"}
           </button>
 
           <p className="text-center text-sm">
-            Déjà inscrit ?{' '}
-            <a href="/login" className="text-blue-600 hover:underline">
+            Déjà inscrit ?{" "}
+            {/* ← remplace <a> par <Link> pour satisfaire @next/next/no-html-link-for-pages */}
+            <Link href="/login" className="text-blue-600 hover:underline">
               Se connecter
-            </a>
+            </Link>
           </p>
         </form>
       </section>
     </Layout>
-  )
+  );
 }

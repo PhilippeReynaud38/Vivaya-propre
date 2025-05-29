@@ -1,42 +1,50 @@
-import { useEffect, useState, ChangeEvent, FormEvent } from 'react';
-import { useRouter } from 'next/router';
-import Image from 'next/image';
-import { supabase } from '../lib/supabaseClient';
+// pages/profile.tsx
+import { useEffect, useState, ChangeEvent, FormEvent } from "react";
+import { useRouter } from "next/router";
+import Image from "next/image";
+import { supabase } from "../lib/supabaseClient";
 
 type ProfileRow = {
+  id: string;
   username: string | null;
   bio: string | null;
   avatar_url: string | null;
 };
 
-export default function Profile() {
+export default function ProfilePage() {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
-  const [pseudo, setPseudo] = useState('');
-  const [bio, setBio] = useState('');
-  const [preview, setPreview] = useState<string | null>(null);
-  const [file, setFile] = useState<File | null>(null);
 
+  /* ---------------- STATE ---------------- */
+  const [loading, setLoading]   = useState(true);
+  const [pseudo, setPseudo]     = useState("");
+  const [bio, setBio]           = useState("");
+  const [preview, setPreview]   = useState<string | null>(null);
+  const [file, setFile]         = useState<File | null>(null);
+
+  /* ---------------- FETCH PROFILE ---------------- */
   useEffect(() => {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        router.replace('/login');
-        return;
-      }
+      if (!user) { router.replace("/login"); return; }
+
       const { data, error } = await supabase
-        .from('profiles')
-        .select('username,bio,avatar_url')
-        .eq('id', user.id)
+        .from("profiles")
+        .select("username,bio,avatar_url")
+        .eq("id", user.id)
         .single<ProfileRow>();
-      if (!error && data) {
-        setPseudo(data.username || '');
-        setBio(data.bio || '');
+
+      if (error && error.code !== "PGRST116") console.error(error.message);
+
+      if (data) {
+        setPseudo(data.username ?? "");
+        setBio(data.bio ?? "");
         setPreview(data.avatar_url);
       }
+      setLoading(false);
     })();
   }, [router]);
 
+  /* ---------------- HANDLERS ---------------- */
   function onFileChange(e: ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     if (f) {
@@ -46,47 +54,66 @@ export default function Profile() {
   }
 
   async function uploadAvatar(userId: string) {
-    if (!file) return null;
-    const ext = file.name.split('.').pop();
+    if (!file) return preview;
+    const ext  = file.name.split(".").pop();
     const path = `${userId}/${Date.now()}.${ext}`;
-    const { error: uploadError } = await supabase.storage
-      .from('avatars')
+
+    const { error } = await supabase.storage
+      .from("avatars")
       .upload(path, file, { upsert: true });
-    if (uploadError) throw uploadError;
-    const { data } = supabase.storage.from('avatars').getPublicUrl(path);
+    if (error) throw error;
+
+    const { data } = supabase.storage.from("avatars").getPublicUrl(path);
     return data.publicUrl;
   }
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setLoading(true);
+
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Utilisateur non authentifié');
+      if (!user) throw new Error("Utilisateur non authentifié");
 
-      let avatarUrl = preview;
-      if (file) {
-        avatarUrl = await uploadAvatar(user.id);
-        await supabase.auth.updateUser({ data: { avatar_url: avatarUrl } });
-      }
+      const avatarUrl = await uploadAvatar(user.id);
 
+      /* ---------- upsert avec id === auth.uid() ---------- */
       const updates = {
-        id: user.id,
+        id: user.id,                  // 🔑 clé primordiale pour RLS
         username: pseudo,
         bio,
         avatar_url: avatarUrl,
-        updated_at: new Date(),
+        updated_at: new Date().toISOString(),
       };
-      const { error: profileError } = await supabase.from('profiles').upsert(updates);
-      if (profileError) throw profileError;
 
-      alert('Profil enregistré ✔️');
+      const { error } = await supabase
+        .from("profiles")
+        .upsert(updates, { onConflict: "id" })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      /* on garde l’avatar dans auth.user_metadata */
+      if (file) {
+        await supabase.auth.updateUser({ data: { avatar_url: avatarUrl } });
+      }
+
+      alert("Profil enregistré ✔️");
     } catch (err: any) {
-      alert(err.message || 'Erreur inconnue');
+      alert(err.message ?? "Erreur inconnue");
     } finally {
       setLoading(false);
     }
   }
+
+  /* ---------------- RENDER ---------------- */
+  if (loading)
+    return (
+      <div className="flex items-center justify-center min-h-[70vh] text-gray-500">
+        Chargement…
+      </div>
+    );
 
   return (
     <section className="flex items-center justify-center min-h-[70vh] px-4 py-10">
@@ -98,9 +125,9 @@ export default function Profile() {
           Mon profil
         </h1>
 
-        <div className="flex flex-col items-center gap-2">
+        <div className="flex flex-col items-center gap-3">
           <Image
-            src={preview || '/default-avatar.png'}
+            src={preview || "/default-avatar.png"}
             alt="Avatar"
             width={120}
             height={120}
@@ -114,7 +141,7 @@ export default function Profile() {
           <input
             type="text"
             value={pseudo}
-            onChange={e => setPseudo(e.target.value)}
+            onChange={(e) => setPseudo(e.target.value)}
             className="mt-1 w-full rounded-lg border px-3 py-2"
             required
           />
@@ -124,7 +151,7 @@ export default function Profile() {
           <span className="font-semibold">Bio</span>
           <textarea
             value={bio}
-            onChange={e => setBio(e.target.value)}
+            onChange={(e) => setBio(e.target.value)}
             rows={4}
             className="mt-1 w-full rounded-lg border px-3 py-2"
           />
@@ -135,7 +162,7 @@ export default function Profile() {
           disabled={loading}
           className="btn-pink w-full disabled:opacity-50"
         >
-          {loading ? 'Enregistrement…' : 'Enregistrer'}
+          {loading ? "Enregistrement…" : "Enregistrer"}
         </button>
       </form>
     </section>

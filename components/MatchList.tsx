@@ -47,6 +47,7 @@ export default function MatchList({ userId }: { userId: string }) {
   };
 
   /* ------ effet + realtime ------ */
+
   useEffect(() => {
     fetchMatches();
 
@@ -60,6 +61,7 @@ export default function MatchList({ userId }: { userId: string }) {
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };   // ← retourne void
+     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
   if (matches.length === 0)

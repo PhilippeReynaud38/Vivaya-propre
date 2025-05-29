@@ -3,94 +3,59 @@
 @tailwind components;
 @tailwind utilities;
 
-html, body, #__next { height: 100%; }   /* <- fondations */
+/* foundations : full-height layout root */
+html,
+body {
+  height: 100%;
+  /* si tu veux un uni : */
+  background-color: #aceef2;
+  /* ou ton dégradé :
+  background-image: linear-gradient(180deg, var(--bg-start) 0%, var(--bg-end) 100%);
+  */
+}
 
-/* ---------- Thème clair par défaut ---------- */
+/* ----------- Thème clair par défaut ----------- */
 :root {
-  --c-primary        : #f55057;      /* rose vif Vivaya          */
-  --c-primary-soft   : #fff1f2;      /* rose très pâle           */
-  --c-card           : #4f46e5;      /* carte / bulles externes  */
-  --bg-start         : #ebfdf5;      /* dégradé global           */
+  --c-primary        : #f55057; /* rose vif Vivaya */
+  --c-primary-soft   : #fff1f2; /* rose très pâle   */
+  --c-card           : #f4f6e5; /* carte / bulles externes */
+  --bg-start         : #ebfdf5; /* dégradé global */
   --bg-end           : #e7f8ff;
 }
 
-/* ---------------------- bulles dédiées au thème FUN ---------------------- */
-
-@layer utilities { 
-[data-theme='fun']{ --brand-txt:40 40 40; }
-      .bubble-sent-fun   { @apply bg-amber-300/90 text-[rgb(var(--brand-txt))]; }
-      .bubble-recv-fun   { @apply bg-lime-200/90   text-[rgb(var(--brand-txt))]; }
+/* -------------- bulles dédiées au thème FUN -------------- */
+@layer utilities {
+  [data-theme='fun'] { --brand-txt: 40 40 40; }
+  .bubble-sent-fun { @apply bg-amber-300/90 text-[rgb(var(--brand-txt))]; }
+  .bubble-recv-fun { @apply bg-lime-200/90  text-[rgb(var(--brand-txt))]; }
 }
-
 
 /* ---------- Thème pastel « fun » ---------- */
 html[data-theme='fun'] {
-  --brand-txt:  40 40 80;     
-  --c-primary        : #ff9b00;      /* orange doux              */
-  --c-primary-soft   : #efe4ff;
-  --c-card           : #fffbe8;
-  --bg-start         : #fffbe8;
-  --bg-end           : #ffe7f1;
+  --brand-txt      : 40 40 80;
+  --c-primary      : #ff9b00;
+  --c-primary-soft : #efe4ff;
+  --c-card         : #fffbe8;
+  --bg-start       : #fffbe8;
+  --bg-end         : #ffe7f1;
 }
-/* bulle spécifique au thème fun : même classes qu’avant + couleur txt */
+
 .bubble-fun{ @apply text-[rgb(var(--brand-txt))] }
 
 /* ---------- Mode sombre ---------- */
 .dark {
-  --c-primary        : #a855f7;
-  --c-primary-soft   : #3b3664;
-  --c-card           : #efe4ff;
-  --bg-start         : #0f172a;
-  --bg-end           : #1e293b;
-}
-
-
-html,
-body {
-  height: 100%;
-  margin: 0;
-  padding: 0;
-  scroll-behavior: smooth;
-  -webkit-overflow-scrolling: touch;
-  overflow-x: hidden;
-
-  /* ✅ fond bleu clair + texture réappliqué */
-  @apply bg-flow;
-  background-attachment: fixed;
-}
-
-#__next {
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
-}
-
-/* Le main prend tout l'espace sauf header/footer */
-main {
-  flex: 1;
-  width: 100%;
-  position: relative;
-}
-
-/* Le footer ne dépasse pas */
-footer {
-  flex-shrink: 0;
-  z-index: 10;
-}
-
-/* Images propres */
-img {
-  width: auto;
-  height: auto;
+  --c-primary      : #a855f7;
+  --c-primary-soft : #3b3664;
+  --c-card         : #efe4ff;
+  --bg-start       : #0f172a;
+  --bg-end         : #1e293b;
 }
 
 /* -------- thème global -------- */
 @layer base {
-  body {
-    @apply text-neutral font-sans;
-  }
+  body { @apply text-neutral font-sans; }
 
-  /* -------- Thème pastel « fun » (activé via <html data-theme="fun">) ------- */
+  /* Gradient background for pastel fun variant */
   html[data-theme="fun"] body {
     background-image:
       linear-gradient(180deg,
@@ -104,25 +69,7 @@ img {
   }
 }
 
-/* -------- composants réutilisables -------- */
-@layer components {
-  .btn-pink {
-    @apply bg-pink-500 hover:bg-pink-600 text-white font-semibold px-5 py-2 rounded-lg transition;
-  }
-  .btn-yellow {
-    @apply bg-yellow-400 hover:bg-yellow-500 text-white font-semibold px-5 py-2 rounded-lg transition;
-  }
-  .input {
-    @apply w-full rounded border-gray-300 focus:ring-pink-500 focus:border-pink-500 px-4 py-2;
-  }
-
-  /* Helpers icônes action : cloche, corbeille, etc. */
-  .icon-action {
-    @apply fill-current text-orange-400 hover:text-orange-500 transition;
-  }
-}
-
-/* -------- arrière-plan personnalisé -------- */
+/* -------- arrière‑plan personnalisé -------- */
 @layer utilities {
   .bg-flow {
     background-image:
@@ -136,16 +83,16 @@ img {
   }
 
   /* Scrollbar fine (desktop) */
-  .thin-scrollbar::-webkit-scrollbar        { width: 6px; height: 6px; }
-  .thin-scrollbar::-webkit-scrollbar-track  { background: transparent; }
-  .thin-scrollbar::-webkit-scrollbar-thumb  { background: rgba(0,0,0,.25); border-radius: 3px; }
-  .thin-scrollbar                          { scrollbar-width: thin; scrollbar-color: rgba(0,0,0,.25) transparent; }
+  .thin-scrollbar::-webkit-scrollbar       { width: 6px; height: 6px; }
+  .thin-scrollbar::-webkit-scrollbar-track { background: transparent; }
+  .thin-scrollbar::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.25); border-radius: 3px; }
+  .thin-scrollbar                         { scrollbar-width: thin; scrollbar-color: rgba(0,0,0,0.25) transparent; }
 
   /* Petite animation “wizz” pour attirer l’attention */
   @keyframes wizz {
-    0%,100% { transform: rotate(0deg);   }
-    25%     { transform: rotate(3deg);   }
-    75%     { transform: rotate(-3deg);  }
+    0%,100% { transform: rotate(0deg); }
+    25%     { transform: rotate(3deg); }
+    75%     { transform: rotate(-3deg); }
   }
   .animate-wizz { animation: wizz 0.3s ease-in-out 1; }
 }
