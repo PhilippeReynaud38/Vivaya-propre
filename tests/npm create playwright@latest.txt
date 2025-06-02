@@ -1,0 +1,1 @@
+lancer le basic test à la racine ---->   npm create playwright@latest

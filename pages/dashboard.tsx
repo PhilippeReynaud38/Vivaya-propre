@@ -1,28 +1,35 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
-import { supabase } from '@/lib/supabaseClient';   // ✅ alias @/   (au lieu de ../lib)
+import { supabase } from '@/lib/supabaseClient';   // ✅ alias @/
 import { motion } from 'framer-motion';
 
 export default function Dashboard() {
   const router = useRouter();
   const [userEmail, setUserEmail] = useState<string | null>(null);
 
+  /* ------------------------------------------------------------------ */
+  /* 1. Récupération (ou redirection) de l’utilisateur                   */
+  /* ------------------------------------------------------------------ */
   useEffect(() => {
-    async function getUser() {
+    (async () => {
       const { data: { user } } = await supabase.auth.getUser();
 
       if (!user) {
         router.push('/login');
       } else {
-        // user.email est string | undefined  → on convertit proprement
         setUserEmail(user.email ?? null);
       }
-    }
-    getUser();
+    })();
   }, [router]);
 
+  /* ------------------------------------------------------------------ */
+  /* 2. Render                                                          */
+  /* ------------------------------------------------------------------ */
   return (
-    <section className="mt-10 px-4 sm:px-0">
+    <main
+      data-testid="dashboard-main"          /* 👈 repère Playwright */
+      className="mt-10 px-4 sm:px-0"
+    >
       <motion.div
         initial={{ opacity: 0, y: 40 }}
         animate={{ opacity: 1, y: 0 }}
@@ -40,6 +47,6 @@ export default function Dashboard() {
           </p>
         )}
       </motion.div>
-    </section>
+    </main>
   );
 }

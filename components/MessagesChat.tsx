@@ -24,18 +24,14 @@ export interface MessagesChatProps {
 }
 
 /* ----------------------------------------------------------------------
- * Emoji picker data
+ * Emoji picker
  * --------------------------------------------------------------------*/
 const CATS = {
-  faces: [
-    "😀","😁","😂","🤣","😅","😊","😎","😍","😘","😜","🤔","😢","😭","😡","🥳",
-  ],
-  gestures: ["👍","👎","👌","👏","🙌","🙏","💪","🤘","✌️","👋"],
-  love: ["❤️","🧡","💛","💚","💙","💜","💖","💕","💔"],
-  fun: [
-    "🎉","🔥","✨","⚡","💯","🍕","🍺","🤖","💀","👻","🎸","🎮","🚀","🛸","🎧",
-  ],
-  misc: ["⭐","🏆","⚽","🎲","🎵","📚","🗺️","🏖️","🌈","🍀"],
+  faces: ["😀", "😁", "😂", "🤣", "😅", "😊", "😎", "😍", "😘", "😜", "🤔", "😢", "😭", "😡", "🥳"],
+  gestures: ["👍", "👎", "👌", "👏", "🙌", "🙏", "💪", "🤘", "✌️", "👋"],
+  love: ["❤️", "🧡", "💛", "💚", "💙", "💜", "💖", "💕", "💔"],
+  fun: ["🎉", "🔥", "✨", "⚡", "💯", "🍕", "🍺", "🤖", "💀", "👻", "🎸", "🎮", "🚀", "🛸", "🎧"],
+  misc: ["⭐", "🏆", "⚽", "🎲", "🎵", "📚", "🗺️", "🏖️", "🌈", "🍀"],
 } as const;
 
 const CAT_ICON: Record<keyof typeof CATS, string> = {
@@ -46,67 +42,43 @@ const CAT_ICON: Record<keyof typeof CATS, string> = {
   misc: "✨",
 };
 
-/* ----------------------------------------------------------------------
- * Petite utilitaire clsx
- * --------------------------------------------------------------------*/
-function clsx(...c: (string | false | undefined)[]) {
-  return c.filter(Boolean).join(" ");
-}
-
-/* ----------------------------------------------------------------------
- * Helper : fallback beep si le mp3 pose problème
- * --------------------------------------------------------------------*/
-function playBeep(ctx: AudioContext) {
-  const osc = ctx.createOscillator();
-  const gain = ctx.createGain();
-  osc.frequency.value = 880;
-  gain.gain.value = 0.2;
-  osc.connect(gain);
-  gain.connect(ctx.destination);
-  osc.start();
-  osc.stop(ctx.currentTime + 0.15);
-}
-
-/* ----------------------------------------------------------------------
- * Component
- * --------------------------------------------------------------------*/
+/* -------------------------------------------------------------------- */
 export default function MessagesChat({ userId, peerId }: MessagesChatProps) {
-  /* ------------------ local state & refs ----------------------------*/
+  /* ---- state & refs -------------------------------------------------*/
   const [messages, setMessages] = useState<Message[]>([]);
   const [reactions, setReactions] = useState<Reaction[]>([]);
-  const [newMsg, setNewMsg] = useState("");
+  const [newMsg, setNewMsg]     = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [cat, setCat] = useState<keyof typeof CATS>("faces");
+  const [cat, setCat]           = useState<keyof typeof CATS>("faces");
   const [soundEnabled, setSoundEnabled] = useState(true);
 
-  const bottomRef   = useRef<HTMLDivElement>(null);
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const dingRef     = useRef<HTMLAudioElement | null>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const audioRef  = useRef<HTMLAudioElement | null>(null);
 
-  /* ------------------ helpers ----------------------------*/
   const scrollToBottom = () => bottomRef.current?.scrollIntoView({ behavior: "smooth" });
 
-  /* ------------------ initialisation ---------------------*/
+  /* ---- init : charge le son & pref ----------------------------------*/
   useEffect(() => {
-    audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-
-    // sonnerie mp3
-    dingRef.current = new Audio("/ding.mp3");
-    dingRef.current.preload = "auto";
-    dingRef.current.volume = 0.4;
-
-    // pref sound sauvegardée
+    audioRef.current = new Audio("/ding.mp3");
+    audioRef.current.volume = 0.4;
     const stored = localStorage.getItem("chatSoundEnabled");
     if (stored !== null) setSoundEnabled(stored === "true");
   }, []);
 
-  // ------------------------------------------------------------------
-  // 🔑 Edge / Firefox autoplay-policy workaround
-  // ------------------------------------------------------------------
+  /* ---- workaround autoplay (Edge / Firefox) -------------------------*/
   useEffect(() => {
     const unlock = () => {
-      audioCtxRef.current?.resume();
-      dingRef.current?.play().catch(() => dingRef.current?.pause());
+      const audio = audioRef.current;
+      if (!audio) return;
+
+      audio
+        .play()
+        .then(() => {
+          audio.pause();
+          audio.currentTime = 0;
+        })
+        .catch(() => {});
+
       window.removeEventListener("pointerdown", unlock);
       window.removeEventListener("keydown", unlock);
     };
@@ -118,148 +90,130 @@ export default function MessagesChat({ userId, peerId }: MessagesChatProps) {
     };
   }, []);
 
-  /* ------------------ persistence du réglage son --------------*/
+  /* ---- persiste la préférence son ----------------------------------*/
   useEffect(() => {
     localStorage.setItem("chatSoundEnabled", String(soundEnabled));
   }, [soundEnabled]);
 
-  /* ------------------ fetch + realtime messages ----------*/
-  useEffect(() => {
-    const fetchMessages = async () => {
-      const { data, error } = await supabase
-        .from("messages")
-        .select("*")
-        .or(
-          `and(sender.eq.${userId},receiver.eq.${peerId}),and(sender.eq.${peerId},receiver.eq.${userId})`
-        )
-        .order("created_at");
-      if (!error && data) {
-        setMessages(data as Message[]);
-        scrollToBottom();
-      }
-    };
-
-    fetchMessages();
-
-    const channel = supabase
-      .channel("messages:realtime")
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "messages" },
-        (payload) => {
-          const m = payload.new as Message;
-          if (
-            (m.sender === userId && m.receiver === peerId) ||
-            (m.sender === peerId && m.receiver === userId)
-          ) {
-            setMessages((prev) => [...prev, m]);
-
-            // sonnerie uniquement à la réception
-            if (m.sender === peerId && soundEnabled) {
-              const ding = dingRef.current;
-              if (ding) {
-                ding.currentTime = 0;
-                ding.play().catch(() => {
-                  if (audioCtxRef.current) playBeep(audioCtxRef.current);
-                });
-              } else if (audioCtxRef.current) {
-                playBeep(audioCtxRef.current);
-              }
-            }
-
-            setTimeout(scrollToBottom, 50);
-          }
-        }
+ /* ------------------ fetch initial + realtime -----------------------*/
+useEffect(() => {
+  /** récupération des messages déjà en base */
+  const fetchMessages = async () => {
+    const { data } = await supabase
+      .from("messages")
+      .select("*")
+      .or(
+        `and(sender.eq.${userId},receiver.eq.${peerId}),and(sender.eq.${peerId},receiver.eq.${userId})`
       )
-      .subscribe();
+      .order("created_at");
 
-    // 💡 IMPORTANT : ne pas retourner la Promise, seulement la fonction de cleanup
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [userId, peerId, soundEnabled]);
+    if (data) {
+      setMessages(data as Message[]);
+      scrollToBottom();
+    }
+  };
 
-  /* ------------------ send a new message -----------------*/
+  /* on déclenche, sans attendre de retour (pas de async directement dans useEffect) */
+  fetchMessages().catch(console.error);
+
+  /** abonnement realtime */
+  const channel = supabase
+    .channel("messages:realtime")
+    .on(
+      "postgres_changes",
+      { event: "INSERT", schema: "public", table: "messages" },
+      (payload) => {
+        const m = payload.new as Message;
+        if (
+          (m.sender === userId && m.receiver === peerId) ||
+          (m.sender === peerId && m.receiver === userId)
+        ) {
+          setMessages((prev) => [...prev, m]);
+
+          if (m.sender === peerId && soundEnabled) {
+            const audio = audioRef.current;
+            if (audio) {
+              audio.currentTime = 0;
+              audio.play().catch(() => {});
+            }
+          }
+          setTimeout(scrollToBottom, 50);
+        }
+      }
+    )
+    .subscribe();
+
+  /* cleanup : se désabonner */
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}, [userId, peerId, soundEnabled]);
+
+  /* ---- envoi message ------------------------------------------------*/
   const sendMessage = async () => {
     const content = newMsg.trim();
     if (!content) return;
     setNewMsg("");
     setPickerOpen(false);
-
-    await supabase
-      .from("messages")
-      .insert({ sender: userId, receiver: peerId, content })
-      .throwOnError();
-
+    await supabase.from("messages").insert({ sender: userId, receiver: peerId, content });
     setTimeout(scrollToBottom, 50);
   };
 
-  /* ------------------ toggle reaction --------------------*/
+  /* ---- toggle réaction ---------------------------------------------*/
   const toggleReaction = async (msgId: number, emoji: string) => {
     const existing = reactions.find(
       (r) => r.message_id === msgId && r.user_id === userId && r.emoji === emoji
     );
-
     if (existing) {
-      await supabase.from("message_reactions").delete().eq("id", existing.id).throwOnError();
+      await supabase.from("message_reactions").delete().eq("id", existing.id);
       setReactions((r) => r.filter((x) => x.id !== existing.id));
     } else {
       const { data } = await supabase
         .from("message_reactions")
         .insert({ message_id: msgId, user_id: userId, emoji })
         .select()
-        .single()
-        .throwOnError();
+        .single();
       setReactions((r) => [...r, data as Reaction]);
     }
   };
 
-/* ------------------------------------------------------------------
- * Render helpers
- * ----------------------------------------------------------------*/
-const renderMessage = (m: Message) => {
-  const mine   = m.sender === userId;
-  const reacts = reactions.filter((r) => r.message_id === m.id);
+  /* ---- render helper -----------------------------------------------*/
+  const renderMessage = (m: Message) => {
+    const mine = m.sender === userId;
+    const reacts = reactions.filter((r) => r.message_id === m.id);
 
-  return (
-    <div key={m.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
-      <div
-        className={clsx(
-          "relative px-4 py-2 rounded-xl text-sm shadow-sm",
-          "max-w-[80%] sm:max-w-[65%] lg:max-w-[45%]",
-          mine ? "bg-pink-100" : "bg-white"
-        )}
-        onContextMenu={(e) => {
-          e.preventDefault();
-          toggleReaction(m.id, "❤️");
-        }}
-      >
-        {m.content}
-
-        {reacts.length > 0 && (
-          <div className="mt-1 flex gap-1 text-sm">
-            {reacts.map((r) => (
-              <span key={r.id}>{r.emoji}</span>
-            ))}
-          </div>
-        )}
+    return (
+      <div key={m.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
+        <div
+          className={`relative px-4 py-2 rounded-xl max-w-[80%] break-words shadow-sm ${
+            mine ? "bg-sky-200/90" : "bg-gray-100"
+          }`}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            toggleReaction(m.id, "❤️");
+          }}
+        >
+          {m.content}
+          {reacts.length > 0 && (
+            <div className="mt-1 flex gap-1 text-sm">
+              {reacts.map((r) => (
+                <span key={r.id}>{r.emoji}</span>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
-    </div>
-  );
-};
+    );
+  };
 
-  /* ------------------------------------------------------------------
-   * JSX
-   * ----------------------------------------------------------------*/
+  /* ---- JSX ---------------------------------------------------------*/
   return (
     <div className="flex flex-col h-full relative">
-      {/* Liste des messages */}
-      <div className="flex-1 overflow-y-auto px-4 pt-2 pb-28 space-y-4 thin-scrollbar">
+      <div className="flex-1 overflow-y-auto px-4 pt-2 pb-28 flex flex-col gap-4 thin-scrollbar">
         {messages.map(renderMessage)}
         <div ref={bottomRef} />
       </div>
 
-      {/* Picker d’émojis */}
       {pickerOpen && (
         <div className="absolute bottom-20 left-1/2 -translate-x-1/2 w-[95%] max-w-sm bg-white border rounded shadow-lg p-3 z-50">
           <div className="flex justify-center gap-2 mb-2">
@@ -267,10 +221,9 @@ const renderMessage = (m: Message) => {
               <button
                 key={k}
                 aria-label={k}
-                className={clsx(
-                  "px-2 py-1 rounded text-lg",
+                className={`px-2 py-1 rounded text-lg ${
                   cat === k ? "bg-primary/20" : "hover:bg-neutral-100"
-                )}
+                }`}
                 onClick={() => setCat(k)}
               >
                 {CAT_ICON[k]}
@@ -293,16 +246,7 @@ const renderMessage = (m: Message) => {
         </div>
       )}
 
-      {/* Barre d’entrée */}
-
-      
-<div
-  className="
-    fixed inset-x-0 bottom-0 bg-white border-t p-3 flex items-center gap-2 shadow z-50
-    sm:rounded-b-xl sm:ring-1 sm:ring-black/10
-  "
->
-        {/* toggle sonnerie */}
+      <div className="fixed bottom-0 inset-x-0 bg-white border-t p-3 flex items-center gap-2 z-50">
         <button
           aria-label={soundEnabled ? "Désactiver le son" : "Activer le son"}
           className="text-xl"
@@ -311,7 +255,6 @@ const renderMessage = (m: Message) => {
           {soundEnabled ? "🔔" : "🔕"}
         </button>
 
-        {/* toggle picker d’émojis */}
         <button
           aria-label="Ouvrir le sélecteur d’émojis"
           className="text-xl"
@@ -321,11 +264,10 @@ const renderMessage = (m: Message) => {
         </button>
 
         <input
+          data-testid="chat-input"
           value={newMsg}
           onChange={(e) => setNewMsg(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") sendMessage();
-          }}
+          onKeyDown={(e) => e.key === "Enter" && sendMessage()}
           placeholder="Écris un message…"
           className="flex-1 border rounded px-3 py-2 text-sm"
         />
@@ -338,4 +280,11 @@ const renderMessage = (m: Message) => {
       </div>
     </div>
   );
+}
+
+/* ----------------------------------------------------------------------
+ * util clsx
+ * --------------------------------------------------------------------*/
+function clsx(...c: (string | false | undefined)[]) {
+  return c.filter(Boolean).join(" ");
 }

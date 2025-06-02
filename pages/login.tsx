@@ -1,39 +1,40 @@
 // pages/login.tsx
-import { FormEvent, useState } from 'react'
-import { useRouter } from 'next/router'
-import Link from 'next/link'
-import Layout from '../components/Layout'
-import { supabase } from '../lib/supabaseClient'
+import { FormEvent, useState } from 'react';
+import { useRouter } from 'next/router';
+import Link              from 'next/link';
+import Layout            from '../components/Layout';
+import { supabase }      from '../lib/supabaseClient';
 
 export default function Login() {
-  const router = useRouter()
+  const router = useRouter();
 
-  /* --------- pré‑remplissage de l’e‑mail --------- */
+  /* ---------- pré-remplissage éventuel ---------- */
   const prefill =
-    typeof router.query.email === 'string' ? router.query.email : ''
-  const checkMail = router.query.checkMail === '1'
+    typeof router.query.email === 'string' ? router.query.email : '';
+  const checkMail = router.query.checkMail === '1';
 
-  const [email, setEmail]       = useState(prefill)
-  const [password, setPassword] = useState('')
-  const [error, setError]       = useState<string | null>(null)
-  const [loading, setLoading]   = useState(false)
+  const [email,     setEmail]     = useState(prefill);
+  const [password,  setPassword]  = useState('');
+  const [error,     setError]     = useState<string | null>(null);
+  const [loading,   setLoading]   = useState(false);
 
+  /* ---------- soumission ---------- */
   async function handleSubmit(e: FormEvent) {
-    e.preventDefault()
-    setError(null)
-    setLoading(true)
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    setLoading(false)
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    setLoading(false);
 
     if (error) {
       if (error.message.includes('Email not confirmed')) {
-        setError('Merci de confirmer ton e‑mail avant de te connecter.')
+        setError('Merci de confirmer ton e-mail avant de te connecter.');
       } else {
-        setError('E‑mail ou mot de passe incorrect.')
+        setError('E-mail ou mot de passe incorrect.');
       }
     } else {
-      router.replace('/dashboard')
+      router.replace('/dashboard');
     }
   }
 
@@ -48,28 +49,32 @@ export default function Login() {
             Se connecter
           </h1>
 
+          {/* message de confirmation après inscription */}
           {checkMail && (
             <p className="bg-green-100 text-green-700 p-3 rounded text-sm text-center">
-              Un e‑mail de confirmation vient d’être envoyé.<br />
-              Valide‑le, puis connecte‑toi !
+              Un e-mail de confirmation vient d’être envoyé.<br />
+              Valide-le, puis connecte-toi !
             </p>
           )}
 
+          {/* message d’erreur */}
           {error && (
             <p className="bg-red-100 text-red-700 p-3 rounded text-sm text-center">
               {error}
             </p>
           )}
 
+          {/* -------- champs -------- */}
           <label className="block">
-            <span className="sr-only">Adresse e‑mail</span>
+            <span className="sr-only">Adresse e-mail</span>
             <input
               type="email"
               value={email}
               onChange={e => setEmail(e.target.value)}
               required
+              placeholder="Email"
+              data-testid="login-email"
               className="input"
-              placeholder="Adresse e‑mail"
             />
           </label>
 
@@ -80,21 +85,24 @@ export default function Login() {
               value={password}
               onChange={e => setPassword(e.target.value)}
               required
-              className="input"
               placeholder="Mot de passe"
+              data-testid="login-password"
+              className="input"
             />
           </label>
 
+          {/* -------- bouton -------- */}
           <button
             type="submit"
             disabled={loading}
+            data-testid="login-submit"
             className="btn-pink w-full disabled:opacity-60"
           >
             {loading ? 'Connexion…' : 'Se connecter'}
           </button>
 
           <p className="text-center text-sm">
-            Pas encore inscrit ?{' '}
+            Pas encore inscrit ?{' '}
             <Link href="/signup" className="text-blue-600 hover:underline">
               Créer un compte
             </Link>
@@ -102,5 +110,5 @@ export default function Login() {
         </form>
       </section>
     </Layout>
-  )
+  );
 }
